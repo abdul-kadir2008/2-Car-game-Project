@@ -1,12 +1,10 @@
 <!DOCTYPE html>
-
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <title>2 Car Game</title>
 
-    ```
     <style>
         body {
             margin: 0;
@@ -14,7 +12,6 @@
             overflow: hidden;
         }
 
-        /* FULL SCREEN */
         .container {
             position: relative;
             width: 100vw;
@@ -22,7 +19,6 @@
             overflow: hidden;
         }
 
-        /* Lanes */
         .lane {
             position: absolute;
             width: 25%;
@@ -50,12 +46,11 @@
         /* Cars */
         .car {
             position: absolute;
-            width: 45px;
-            height: 80px;
+            width: 60px;
+            height: 100px;
             border-radius: 20px;
-            top: 70%;
-            /* pehle 75% tha */
-            transition: left 0.2s;
+            top: 68%;
+            transition: left 0.15s;
         }
 
         .red {
@@ -68,31 +63,25 @@
             left: 60%;
         }
 
-        /* Stone */
+        /* Objects */
         .stone {
             position: absolute;
-            width: 45px;
-            /* pehle 28px tha */
-            height: 45px;
+            width: 60px;
+            height: 60px;
             background: gray;
             border-radius: 50%;
-            top: -50px;
+            top: -60px;
         }
 
-        /* Coin */
         .coin {
             position: absolute;
-            width: 40px;
-            /* pehle 22px tha */
-            height: 40px;
+            width: 55px;
+            height: 55px;
             background: gold;
             border-radius: 50%;
-            top: -50px;
+            top: -60px;
         }
 
-
-
-        /* Score */
         .score {
             position: absolute;
             top: 10px;
@@ -101,7 +90,6 @@
             font-size: 26px;
         }
 
-        /* Game Over */
         .gameOver {
             position: absolute;
             width: 100%;
@@ -113,37 +101,22 @@
             align-items: center;
             flex-direction: column;
         }
-
-        .gameOver button {
-            padding: 10px 20px;
-            font-size: 18px;
-            margin-top: 10px;
-            cursor: pointer;
-        }
     </style>
-    ```
-
 </head>
 
 <body>
 
-    ```
     <div class="container">
-
-        <!-- Lanes -->
         <div class="lane"></div>
         <div class="lane"></div>
         <div class="lane"></div>
         <div class="lane"></div>
 
-        <!-- Cars -->
         <div class="car red" id="redCar"></div>
         <div class="car blue" id="blueCar"></div>
 
-        <!-- Score -->
         <div class="score" id="score">0</div>
 
-        <!-- Game Over -->
         <div class="gameOver" id="gameOver">
             <h2>Game Over</h2>
             <p>Your Score: <span id="finalScore">0</span></p>
@@ -151,38 +124,32 @@
 
             <p>Select Speed:</p>
             <select id="speedSelect">
-                <option value="3">Normal</option>
-                <option value="4">Fast</option>
-                <option value="5">Pro</option>
+                <option value="8">Normal</option>
+                <option value="12">Fast</option>
+                <option value="16">Pro</option>
             </select>
 
             <button onclick="restartGame()">Restart</button>
         </div>
-
     </div>
 
     <script>
+
         let score = 0;
         let redLane = 0;
         let blueLane = 3;
 
-        let speed = 25;
-        let maxSpeed = 50;
-        let speedIncrease = 0.15;
+        let speed = window.innerWidth < 500 ? 12 : 8;
+        let maxSpeed = 20;
+        let speedIncrease = 0.2;
 
         let gameRunning = true;
+        let coinGroupActive = false;
 
-        /* Load saved speed */
-
+        /* Load speed */
         let savedSpeed = localStorage.getItem("gameSpeed");
-        if (!localStorage.getItem("gameSpeed")) {
-            localStorage.setItem("gameSpeed", "25"); // default normal
-        }
-
         if (savedSpeed) {
             speed = parseFloat(savedSpeed);
-
-            // 🔥 Dropdown ko bhi same value pe set karo
             window.onload = () => {
                 document.getElementById("speedSelect").value = savedSpeed;
             };
@@ -196,31 +163,22 @@
         const blueCar = document.getElementById("blueCar");
         const container = document.querySelector(".container");
 
-        let lastLane = -1;
-
-
-        function getLane() {
-            let lane;
-            do {
-                lane = Math.floor(Math.random() * 4);
-            } while (lane === lastLane);
-            lastLane = lane;
-            return lane;
-        }
-
+        /* Update cars */
         function updateCars() {
             redCar.style.left = (redLane * 25 + 10) + "%";
             blueCar.style.left = (blueLane * 25 + 10) + "%";
         }
+        updateCars();
 
+        /* Controls */
         document.addEventListener("keydown", (e) => {
             if (!gameRunning) return;
 
-            if (e.key === "a" && redLane > 0) redLane--;
-            if (e.key === "d" && redLane < 1) redLane++;
+            if (e.key === "a" || e.key === "A") if (redLane > 0) redLane--;
+            if (e.key === "d" || e.key === "D") if (redLane < 1) redLane++;
 
-            if (e.key === "ArrowLeft" && blueLane > 2) blueLane--;
-            if (e.key === "ArrowRight" && blueLane < 3) blueLane++;
+            if (e.key === "ArrowLeft") if (blueLane > 2) blueLane--;
+            if (e.key === "ArrowRight") if (blueLane < 3) blueLane++;
 
             updateCars();
         });
@@ -240,18 +198,41 @@
             updateCars();
         });
 
-        function createItem(type) {
-            if (!gameRunning) return;
+        /* Collision */
+        function hit(a, b) {
+            return !(a.bottom < b.top || a.top > b.bottom || a.right < b.left || a.left > b.right);
+        }
+
+        /* Game Over */
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById("gameOver").style.display = "flex";
+            document.getElementById("finalScore").innerText = score;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("highScore", highScore);
+                document.getElementById("highScore").innerText = highScore;
+            }
+        }
+
+        /* Restart */
+        function restartGame() {
+            let selectedSpeed = document.getElementById("speedSelect").value;
+            localStorage.setItem("gameSpeed", selectedSpeed);
+            location.reload();
+        }
+
+        /* Coins */
+        function createCoinInLane(lane, offsetY) {
 
             let item = document.createElement("div");
-            item.classList.add(type);
+            item.classList.add("coin");
 
-            let lane = getLane();
-            item.style.left = (lane * 25 + 8) + "%";
-
+            item.style.left = (lane * 25 + 10) + "%";
             container.appendChild(item);
 
-            let top = -50;
+            let top = -60 - offsetY;
 
             let fall = setInterval(() => {
                 if (!gameRunning) {
@@ -267,18 +248,74 @@
                 let r2 = redCar.getBoundingClientRect();
                 let r3 = blueCar.getBoundingClientRect();
 
-                if (type === "stone" && (hit(r1, r2) || hit(r1, r3))) {
-                    gameOver();
-                }
-
-                if (type === "coin" && (hit(r1, r2) || hit(r1, r3))) {
+                // ✅ COLLISION
+                if (hit(r1, r2) || hit(r1, r3)) {
                     score++;
                     document.getElementById("score").innerText = score;
                     item.remove();
                     clearInterval(fall);
+                    return;
                 }
 
-                if (type === "coin" && top > window.innerHeight) {
+                // ❌ MISS CHECK (IMPORTANT 🔥)
+                if (top > window.innerHeight) {
+
+                    // LEFT SIDE (red lanes 0,1)
+                    if (lane === 0 || lane === 1) {
+                        gameOver();
+                    }
+
+                    // RIGHT SIDE (blue lanes 2,3)
+                    if (lane === 2 || lane === 3) {
+                        gameOver();
+                    }
+
+                    item.remove();
+                    clearInterval(fall);
+                }
+
+            }, 30);
+        }
+
+        function createCoinBothSides() {
+
+            let gap = window.innerWidth < 500 ? 90 : 130;
+
+            createCoinInLane(0, 0);
+            createCoinInLane(1, gap);
+
+            createCoinInLane(2, 0);
+            createCoinInLane(3, gap);
+        }
+
+        /* Stone */
+        function createStone() {
+
+            let item = document.createElement("div");
+            item.classList.add("stone");
+
+            let lane = Math.floor(Math.random() * 4);
+            item.style.left = (lane * 25 + 10) + "%";
+
+            container.appendChild(item);
+
+            let top = -60;
+
+            let fall = setInterval(() => {
+                if (!gameRunning) {
+                    clearInterval(fall);
+                    item.remove();
+                    return;
+                }
+
+                top += speed;
+                item.style.top = top + "px";
+
+                let r1 = item.getBoundingClientRect();
+                let r2 = redCar.getBoundingClientRect();
+                let r3 = blueCar.getBoundingClientRect();
+
+                if (hit(r1, r2) || hit(r1, r3)) {
                     gameOver();
                 }
 
@@ -287,51 +324,47 @@
                     clearInterval(fall);
                 }
 
-            }, 70);
+            }, 30);
         }
 
-        function hit(a, b) {
-            return !(a.bottom < b.top || a.top > b.bottom || a.right < b.left || a.left > b.right);
-        }
-
-        function gameOver() {
-            gameRunning = false;
-
-            document.getElementById("gameOver").style.display = "flex";
-            document.getElementById("finalScore").innerText = score;
-
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem("highScore", highScore);
-                document.getElementById("highScore").innerText = highScore;
-            }
-        }
-
-        function restartGame() {
-            let selectedSpeed = document.getElementById("speedSelect").value;
-            localStorage.setItem("gameSpeed", selectedSpeed);
-            location.reload();
-        }
-
-        function spawn(type, min, max) {
+        /* Spawn */
+        function spawnCoins() {
             function loop() {
                 if (!gameRunning) return;
-                createItem(type);
-                setTimeout(loop, Math.random() * (max - min) + min);
+
+                if (!coinGroupActive) {
+                    coinGroupActive = true;
+
+                    createCoinBothSides();
+
+                    setTimeout(() => {
+                        coinGroupActive = false;
+                    }, 1200);
+                }
+
+                setTimeout(loop, 1200);
             }
             loop();
         }
 
-        /* Stone gap increased */
-        spawn("stone", 3000, 5000);
-        spawn("coin", 2000, 3500);
+        function spawnStone() {
+            function loop() {
+                if (!gameRunning) return;
+                createStone();
+                setTimeout(loop, 2000);
+            }
+            loop();
+        }
 
+        spawnCoins();
+        spawnStone();
+
+        /* Speed increase */
         setInterval(() => {
             if (speed < maxSpeed) speed += speedIncrease;
         }, 3000);
 
     </script>
-    ```
 
 </body>
 
