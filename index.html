@@ -165,8 +165,8 @@
         let redLane = 0;
         let blueLane = 3;
 
-        let speed = 3;
-        let maxSpeed = 6;
+        let speed = 8;
+        let maxSpeed = 20;
         let speedIncrease = 0.15;
 
         let gameRunning = true;
@@ -233,7 +233,7 @@
             item.classList.add(type);
 
             let lane = getLane();
-            item.style.left = `calc(${lane * 25}% + 17px)`;
+            item.style.left = (lane * 25 + 8) + "%";
 
             container.appendChild(item);
 
