@@ -4,7 +4,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Ultimate Lane Game</title>
+    <title>2 Car Game</title>
 
     ```
     <style>
@@ -173,8 +173,20 @@
         let gameRunning = true;
 
         /* Load saved speed */
+
         let savedSpeed = localStorage.getItem("gameSpeed");
-        if (savedSpeed) speed = parseFloat(savedSpeed);
+        if (!localStorage.getItem("gameSpeed")) {
+            localStorage.setItem("gameSpeed", "25"); // default normal
+        }
+
+        if (savedSpeed) {
+            speed = parseFloat(savedSpeed);
+
+            // 🔥 Dropdown ko bhi same value pe set karo
+            window.onload = () => {
+                document.getElementById("speedSelect").value = savedSpeed;
+            };
+        }
 
         /* High Score */
         let highScore = parseInt(localStorage.getItem("highScore")) || 0;
@@ -185,6 +197,7 @@
         const container = document.querySelector(".container");
 
         let lastLane = -1;
+
 
         function getLane() {
             let lane;
