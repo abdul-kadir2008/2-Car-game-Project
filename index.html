@@ -1,26 +1,25 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <title>Ultimate Lane Game</title>
 
+    ```
     <style>
         body {
             margin: 0;
             background: #20387a;
-            display: flex;
-            justify-content: center;
+            overflow: hidden;
         }
 
-        /* Container */
+        /* FULL SCREEN */
         .container {
             position: relative;
-            width: 320px;
-            height: 640px;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
-            border-left: 3px solid #3c5aab;
-            border-right: 3px solid #3c5aab;
         }
 
         /* Lanes */
@@ -71,8 +70,9 @@
         /* Stone */
         .stone {
             position: absolute;
-            width: 28px;
-            height: 28px;
+            width: 45px;
+            /* pehle 28px tha */
+            height: 45px;
             background: gray;
             border-radius: 50%;
             top: -50px;
@@ -81,12 +81,15 @@
         /* Coin */
         .coin {
             position: absolute;
-            width: 22px;
-            height: 22px;
+            width: 40px;
+            /* pehle 22px tha */
+            height: 40px;
             background: gold;
             border-radius: 50%;
             top: -50px;
         }
+
+
 
         /* Score */
         .score {
@@ -117,10 +120,13 @@
             cursor: pointer;
         }
     </style>
+    ```
+
 </head>
 
 <body>
 
+    ```
     <div class="container">
 
         <!-- Lanes -->
@@ -141,6 +147,14 @@
             <h2>Game Over</h2>
             <p>Your Score: <span id="finalScore">0</span></p>
             <p>High Score: <span id="highScore">0</span></p>
+
+            <p>Select Speed:</p>
+            <select id="speedSelect">
+                <option value="3">Normal</option>
+                <option value="4">Fast</option>
+                <option value="5">Pro</option>
+            </select>
+
             <button onclick="restartGame()">Restart</button>
         </div>
 
@@ -153,9 +167,13 @@
 
         let speed = 3;
         let maxSpeed = 6;
-        let speedIncrease = 0.2;
+        let speedIncrease = 0.15;
 
         let gameRunning = true;
+
+        /* Load saved speed */
+        let savedSpeed = localStorage.getItem("gameSpeed");
+        if (savedSpeed) speed = parseFloat(savedSpeed);
 
         /* High Score */
         let highScore = localStorage.getItem("highScore") || 0;
@@ -165,10 +183,8 @@
         const blueCar = document.getElementById("blueCar");
         const container = document.querySelector(".container");
 
-        /* Prevent same lane repeat */
         let lastLane = -1;
 
-        /* Get random lane (no repeat) */
         function getLane() {
             let lane;
             do {
@@ -178,13 +194,11 @@
             return lane;
         }
 
-        /* Update cars */
         function updateCars() {
             redCar.style.left = (redLane * 25 + 10) + "%";
             blueCar.style.left = (blueLane * 25 + 10) + "%";
         }
 
-        /* Keyboard */
         document.addEventListener("keydown", (e) => {
             if (!gameRunning) return;
 
@@ -197,7 +211,6 @@
             updateCars();
         });
 
-        /* Mobile */
         document.addEventListener("touchstart", (e) => {
             if (!gameRunning) return;
 
@@ -213,7 +226,6 @@
             updateCars();
         });
 
-        /* Create items */
         function createItem(type) {
             if (!gameRunning) return;
 
@@ -221,8 +233,6 @@
             item.classList.add(type);
 
             let lane = getLane();
-
-            /* Perfect centered + gap */
             item.style.left = `calc(${lane * 25}% + 17px)`;
 
             container.appendChild(item);
@@ -243,12 +253,10 @@
                 let r2 = redCar.getBoundingClientRect();
                 let r3 = blueCar.getBoundingClientRect();
 
-                /* Stone hit */
                 if (type === "stone" && (hit(r1, r2) || hit(r1, r3))) {
                     gameOver();
                 }
 
-                /* Coin collect */
                 if (type === "coin" && (hit(r1, r2) || hit(r1, r3))) {
                     score++;
                     document.getElementById("score").innerText = score;
@@ -256,7 +264,6 @@
                     clearInterval(fall);
                 }
 
-                /* Coin miss */
                 if (type === "coin" && top > 650) {
                     gameOver();
                 }
@@ -269,12 +276,10 @@
             }, 70);
         }
 
-        /* Collision */
         function hit(a, b) {
             return !(a.bottom < b.top || a.top > b.bottom || a.right < b.left || a.left > b.right);
         }
 
-        /* Game Over */
         function gameOver() {
             gameRunning = false;
 
@@ -287,12 +292,12 @@
             }
         }
 
-        /* Restart */
         function restartGame() {
+            let selectedSpeed = document.getElementById("speedSelect").value;
+            localStorage.setItem("gameSpeed", selectedSpeed);
             location.reload();
         }
 
-        /* Random spawn */
         function spawn(type, min, max) {
             function loop() {
                 if (!gameRunning) return;
@@ -302,15 +307,16 @@
             loop();
         }
 
-        spawn("stone", 1500, 2500);
-        spawn("coin", 1800, 3000);
+        /* Stone gap increased */
+        spawn("stone", 3000, 5000);
+        spawn("coin", 2000, 3500);
 
-        /* Speed increase */
         setInterval(() => {
             if (speed < maxSpeed) speed += speedIncrease;
         }, 3000);
 
     </script>
+    ```
 
 </body>
 
