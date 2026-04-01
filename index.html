@@ -10,6 +10,7 @@
             margin: 0;
             background: #20387a;
             overflow: hidden;
+            font-family: Arial, sans-serif;
         }
 
         .container {
@@ -51,35 +52,49 @@
             border-radius: 20px;
             top: 68%;
             transition: left 0.15s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
         .red {
-            background: #ff1f55;
+            background: linear-gradient(145deg, #ff1f55, #ff4d7a);
             left: 10%;
         }
 
         .blue {
-            background: #00c5d9;
+            background: linear-gradient(145deg, #00c5d9, #00e6ff);
             left: 60%;
         }
 
-        /* Objects */
+        /* Objects - 3x Distance */
         .stone {
             position: absolute;
             width: 60px;
             height: 60px;
-            background: gray;
+            background: linear-gradient(145deg, #666, #888);
             border-radius: 50%;
-            top: -60px;
+            top: -180px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
         }
 
         .coin {
             position: absolute;
             width: 55px;
             height: 55px;
-            background: gold;
+            background: linear-gradient(145deg, #ffd700, #ffed4a);
             border-radius: 50%;
-            top: -60px;
+            top: -180px;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .score {
@@ -88,6 +103,19 @@
             right: 10px;
             color: white;
             font-size: 26px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
         }
 
         .gameOver {
@@ -100,6 +128,44 @@
             justify-content: center;
             align-items: center;
             flex-direction: column;
+            text-align: center;
+        }
+
+        .gameOver h2 {
+            font-size: 48px;
+            margin: 0 0 20px 0;
+            background: linear-gradient(45deg, #ff1f55, #00c5d9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 18px;
+            margin: 10px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(145deg, #ff1f55, #ff4d7a);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(255, 31, 85, 0.4);
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 31, 85, 0.6);
+        }
+
+        select {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: 2px solid #00c5d9;
+            background: rgba(255, 255, 255, 0.9);
         }
     </style>
 </head>
@@ -117,6 +183,12 @@
 
         <div class="score" id="score">0</div>
 
+        <div class="controls">
+            <div>A/D → Red Car (Lanes 0-1)</div>
+            <div>←→ → Blue Car (Lanes 2-3)</div>
+            <div>❌ MISS COIN = GAME OVER</div>
+        </div>
+
         <div class="gameOver" id="gameOver">
             <h2>Game Over</h2>
             <p>Your Score: <span id="finalScore">0</span></p>
@@ -127,32 +199,31 @@
                 <option value="8">Normal</option>
                 <option value="12">Fast</option>
                 <option value="16">Pro</option>
+                <option value="20">Insane</option>
             </select>
 
-            <button onclick="restartGame()">Restart</button>
+            <button onclick="restartGame()">Restart Game</button>
         </div>
     </div>
 
     <script>
-
         let score = 0;
         let redLane = 0;
         let blueLane = 3;
 
         let speed = window.innerWidth < 500 ? 12 : 8;
-        let maxSpeed = 20;
-        let speedIncrease = 0.2;
+        let maxSpeed = 22;
+        let speedIncrease = 0.15;
 
         let gameRunning = true;
-        let coinGroupActive = false;
+        let activeCoins = [];
+        let lastObjectTime = 0; // Track last object spawn time
+        const MIN_OBJECT_GAP = 1200; // Minimum 1.2s gap between any objects
 
-        /* Load speed */
+        /* Load saved settings */
         let savedSpeed = localStorage.getItem("gameSpeed");
         if (savedSpeed) {
             speed = parseFloat(savedSpeed);
-            window.onload = () => {
-                document.getElementById("speedSelect").value = savedSpeed;
-            };
         }
 
         /* High Score */
@@ -163,29 +234,39 @@
         const blueCar = document.getElementById("blueCar");
         const container = document.querySelector(".container");
 
-        /* Update cars */
+        /* Update car positions */
         function updateCars() {
             redCar.style.left = (redLane * 25 + 10) + "%";
             blueCar.style.left = (blueLane * 25 + 10) + "%";
         }
         updateCars();
 
-        /* Controls */
+        /* Keyboard Controls */
         document.addEventListener("keydown", (e) => {
             if (!gameRunning) return;
 
-            if (e.key === "a" || e.key === "A") if (redLane > 0) redLane--;
-            if (e.key === "d" || e.key === "D") if (redLane < 1) redLane++;
+            if (e.key === "a" || e.key === "A") {
+                if (redLane > 0) redLane--;
+            }
+            if (e.key === "d" || e.key === "D") {
+                if (redLane < 1) redLane++;
+            }
 
-            if (e.key === "ArrowLeft") if (blueLane > 2) blueLane--;
-            if (e.key === "ArrowRight") if (blueLane < 3) blueLane++;
+            if (e.key === "ArrowLeft") {
+                if (blueLane > 2) blueLane--;
+            }
+            if (e.key === "ArrowRight") {
+                if (blueLane < 3) blueLane++;
+            }
 
             updateCars();
         });
 
+        /* Touch Controls */
         document.addEventListener("touchstart", (e) => {
             if (!gameRunning) return;
 
+            e.preventDefault();
             let x = e.touches[0].clientX;
             let w = window.innerWidth;
 
@@ -198,13 +279,20 @@
             updateCars();
         });
 
-        /* Collision */
+        /* Collision Detection */
         function hit(a, b) {
-            return !(a.bottom < b.top || a.top > b.bottom || a.right < b.left || a.left > b.right);
+            const aRect = a.getBoundingClientRect();
+            const bRect = b.getBoundingClientRect();
+            return !(
+                aRect.bottom < bRect.top ||
+                aRect.top > bRect.bottom ||
+                aRect.right < bRect.left ||
+                aRect.left > bRect.right
+            );
         }
 
         /* Game Over */
-        function gameOver() {
+        function gameOver(reason = "") {
             gameRunning = false;
             document.getElementById("gameOver").style.display = "flex";
             document.getElementById("finalScore").innerText = score;
@@ -216,154 +304,187 @@
             }
         }
 
-        /* Restart */
+        /* Restart Game */
         function restartGame() {
             let selectedSpeed = document.getElementById("speedSelect").value;
             localStorage.setItem("gameSpeed", selectedSpeed);
             location.reload();
         }
 
-        /* Coins */
-        function createCoinInLane(lane, offsetY) {
+        /* SAFE SPAWN CHECK - Maintain distance between ALL objects */
+        function canSpawnObject() {
+            const now = Date.now();
+            return (now - lastObjectTime) > MIN_OBJECT_GAP;
+        }
 
-            let item = document.createElement("div");
-            item.classList.add("coin");
+        function updateLastSpawn() {
+            lastObjectTime = Date.now();
+        }
 
-            item.style.left = (lane * 25 + 10) + "%";
-            container.appendChild(item);
+        /* Create Coin */
+        function createCoinInLane(lane, offsetY = 0, carType) {
+            if (!canSpawnObject()) return; // Check distance first
 
-            let top = -60 - offsetY;
+            let coin = document.createElement("div");
+            coin.classList.add("coin");
+            coin.style.left = (lane * 25 + 12.5) + "%";
+            coin.dataset.lane = lane;
+            coin.dataset.carType = carType;
+            container.appendChild(coin);
+            activeCoins.push(coin);
+            updateLastSpawn(); // Update spawn time
 
-            let fall = setInterval(() => {
+            let top = -180 - offsetY;
+            let fallInterval = setInterval(() => {
                 if (!gameRunning) {
-                    clearInterval(fall);
-                    item.remove();
+                    clearInterval(fallInterval);
+                    removeCoin(coin);
                     return;
                 }
 
                 top += speed;
-                item.style.top = top + "px";
+                coin.style.top = top + "px";
 
-                let r1 = item.getBoundingClientRect();
-                let r2 = redCar.getBoundingClientRect();
-                let r3 = blueCar.getBoundingClientRect();
+                let coinRect = coin.getBoundingClientRect();
+                let targetCar = carType === 'red' ? redCar : blueCar;
 
-                // ✅ COLLISION
-                if (hit(r1, r2) || hit(r1, r3)) {
-                    score++;
+                // Coin collected
+                if (hit(coin, targetCar)) {
+                    score += 10;
                     document.getElementById("score").innerText = score;
-                    item.remove();
-                    clearInterval(fall);
+                    removeCoin(coin);
+                    clearInterval(fallInterval);
                     return;
                 }
 
-                // ❌ MISS CHECK (IMPORTANT 🔥)
-                if (top > window.innerHeight) {
-
-                    // LEFT SIDE (red lanes 0,1)
-                    if (lane === 0 || lane === 1) {
-                        gameOver();
-                    }
-
-                    // RIGHT SIDE (blue lanes 2,3)
-                    if (lane === 2 || lane === 3) {
-                        gameOver();
-                    }
-
-                    item.remove();
-                    clearInterval(fall);
+                // Coin missed = GAME OVER
+                if (top > window.innerHeight * 0.75) {
+                    removeCoin(coin);
+                    clearInterval(fallInterval);
+                    gameOver(`Missed ${carType.toUpperCase()} Coin!`);
+                    return;
                 }
 
-            }, 30);
+                if (top > window.innerHeight + 50) {
+                    removeCoin(coin);
+                    clearInterval(fallInterval);
+                }
+            }, 25);
         }
 
-        function createCoinBothSides() {
-
-            let gap = window.innerWidth < 500 ? 90 : 130;
-
-            createCoinInLane(0, 0);
-            createCoinInLane(1, gap);
-
-            createCoinInLane(2, 0);
-            createCoinInLane(3, gap);
+        function removeCoin(coin) {
+            const index = activeCoins.indexOf(coin);
+            if (index > -1) {
+                activeCoins.splice(index, 1);
+            }
+            if (coin.parentNode) {
+                coin.remove();
+            }
         }
 
-        /* Stone */
+        /* RED CAR COINS (Lanes 0-1) */
+        function spawnRedCoins() {
+            function loop() {
+                if (!gameRunning) return;
+
+                if (Math.random() < 0.45 && canSpawnObject()) {
+                    let redLane = Math.floor(Math.random() * 2); // Lanes 0-1
+                    let offsetY = Math.floor(Math.random() * 80);
+                    createCoinInLane(redLane, offsetY, 'red');
+                }
+
+                setTimeout(loop, Math.random() * 600 + 1200); // 1200-1800ms
+            }
+            loop();
+        }
+
+        /* BLUE CAR COINS (Lanes 2-3) */
+        function spawnBlueCoins() {
+            function loop() {
+                if (!gameRunning) return;
+
+                if (Math.random() < 0.45 && canSpawnObject()) {
+                    let blueLane = Math.floor(Math.random() * 2) + 2; // Lanes 2-3
+                    let offsetY = Math.floor(Math.random() * 80);
+                    createCoinInLane(blueLane, offsetY, 'blue');
+                }
+
+                setTimeout(loop, Math.random() * 600 + 1200); // 1200-1800ms
+            }
+            loop();
+        }
+
+        /* STONES - Also respects distance */
         function createStone() {
+            if (!canSpawnObject()) return;
 
-            let item = document.createElement("div");
-            item.classList.add("stone");
-
+            let stone = document.createElement("div");
+            stone.classList.add("stone");
             let lane = Math.floor(Math.random() * 4);
-            item.style.left = (lane * 25 + 10) + "%";
+            stone.style.left = (lane * 25 + 12.5) + "%";
+            container.appendChild(stone);
+            updateLastSpawn();
 
-            container.appendChild(item);
-
-            let top = -60;
-
-            let fall = setInterval(() => {
+            let top = -180;
+            let fallInterval = setInterval(() => {
                 if (!gameRunning) {
-                    clearInterval(fall);
-                    item.remove();
+                    clearInterval(fallInterval);
+                    stone.remove();
                     return;
                 }
 
                 top += speed;
-                item.style.top = top + "px";
+                stone.style.top = top + "px";
 
-                let r1 = item.getBoundingClientRect();
-                let r2 = redCar.getBoundingClientRect();
-                let r3 = blueCar.getBoundingClientRect();
-
-                if (hit(r1, r2) || hit(r1, r3)) {
-                    gameOver();
+                let stoneRect = stone.getBoundingClientRect();
+                if (hit(stone, redCar) || hit(stone, blueCar)) {
+                    stone.remove();
+                    clearInterval(fallInterval);
+                    gameOver("Hit Stone!");
+                    return;
                 }
 
                 if (top > window.innerHeight + 100) {
-                    item.remove();
-                    clearInterval(fall);
+                    stone.remove();
+                    clearInterval(fallInterval);
                 }
-
-            }, 30);
+            }, 25);
         }
 
-        /* Spawn */
-        function spawnCoins() {
+        /* Stones with distance control */
+        function spawnStones() {
             function loop() {
                 if (!gameRunning) return;
 
-                if (!coinGroupActive) {
-                    coinGroupActive = true;
-
-                    createCoinBothSides();
-
-                    setTimeout(() => {
-                        coinGroupActive = false;
-                    }, 1200);
+                if (canSpawnObject()) {
+                    createStone();
                 }
 
-                setTimeout(loop, 1200);
+                let nextStone = Math.random() * 1000 + 2000; // 2000-3000ms
+                setTimeout(loop, nextStone);
             }
             loop();
         }
 
-        function spawnStone() {
-            function loop() {
-                if (!gameRunning) return;
-                createStone();
-                setTimeout(loop, 2000);
-            }
-            loop();
-        }
+        /* Start Game */
+        spawnRedCoins();
+        spawnBlueCoins();
+        spawnStones();
 
-        spawnCoins();
-        spawnStone();
-
-        /* Speed increase */
+        /* Progressive Speed */
         setInterval(() => {
-            if (speed < maxSpeed) speed += speedIncrease;
-        }, 3000);
+            if (speed < maxSpeed && gameRunning) {
+                speed += speedIncrease;
+            }
+        }, 4000);
 
+        /* Set speed selector */
+        window.addEventListener('load', () => {
+            const speedSelect = document.getElementById("speedSelect");
+            if (savedSpeed) {
+                speedSelect.value = savedSpeed;
+            }
+        });
     </script>
 
 </body>
